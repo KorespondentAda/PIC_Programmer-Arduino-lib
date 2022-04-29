@@ -1,3 +1,3 @@
 # PIC\_Programmer Arduino Library
-LLibrary for programming PIC MCUs through Arduino board.
+Library for programming PIC MCUs through Arduino board.
 

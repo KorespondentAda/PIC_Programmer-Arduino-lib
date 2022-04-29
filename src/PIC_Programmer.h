@@ -37,6 +37,9 @@ private:
                                     // Power (Vdd)          XXX PIC_20
                                     // Ground (Vss)         XXX PIC_8 | PIC_19
     Device _dev;
+
+    void pinSet(int);
+    void pinReset(int);
 };
 
 #endif // __PIC_PROGRAMMER_H__
