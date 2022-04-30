@@ -3,8 +3,7 @@
  * PIC_Programmer.h - Library for programming PIC microcontrollers
  * Created by KorespondentAda
  */
-#ifndef __PIC_PROGRAMMER_H__
-#define __PIC_PROGRAMMER_H__
+#pragma once
 
 #include "Arduino.h"
 #include "Device.h"
@@ -15,8 +14,8 @@ public:
     PIC_Programmer(int, int, int, int);
 
     // Interface
-    void Init(Device);
-    void ReadConfiguration();
+    void Init();
+    void ReadConfiguration(bool = true);
     void ReadProgram();
     void ReadData();
     void ReadChip();
@@ -36,10 +35,28 @@ private:
     int _mclr;                      // Pin Not-MCLR         XXX PIC_1
                                     // Power (Vdd)          XXX PIC_20
                                     // Ground (Vss)         XXX PIC_8 | PIC_19
-    Device _dev;
 
-    void pinSet(int);
-    void pinReset(int);
+    Device *_dev;                    // Device description
+
+    void pinSet(int);               // Set digital pin to High voltage
+    void pinReset(int);             // Reset digital pin to Low voltage
+
+    void clockDelay();
+    void clockPulse();
+    void sendBit(bool);
+    void sendBit(Word w, int b) { sendBit(bitRead(w, b)); }
+    Word readBit();
+    void sendCommand(Device::Cmd);
+    void sendWord(Word, bool = true);
+    Word readWord(bool = true);
+    void readWord(Word[], int);
+
+    PcSize increasePc(PcSize = 1);
+
+    void startProgramMode();        // Enter programming mode on chip
+    void stopProgramMode();         // Exit chip from programming mode
+    void enterConfiguration();      // Enter configuration memory space
+
+    int serialWriteWord(Word);
+    int serialWriteWord(Word*, int = 1);
 };
-
-#endif // __PIC_PROGRAMMER_H__
