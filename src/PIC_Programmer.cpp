@@ -71,15 +71,65 @@ void PIC_Programmer::PrintConfiguration() {
     // TODO rewrite typecast; make chip_conf as child of word
     Serial.print(_dev->ConfigurationWord);
     Serial.println("): ");
-    Serial.println(_dev->ConfigurationFlags.cp == 3 ? "Code not protected" : "Code protected");
-    Serial.println(_dev->ConfigurationFlags._cpd ? "Data not protected" : "Data protected");
+    Serial.print(_dev->ConfigurationFlags.cp == 3 ? "Code not protected" : "Code protected");
+    Serial.print(" (");
+    Serial.print(_dev->ConfigurationFlags.cp);
+    Serial.println(")");
+    Serial.println(_dev->ConfigurationFlags.cpd ? "Data not protected" : "Data protected");
     Serial.println(_dev->ConfigurationFlags.wrt ? "Program write enabled" : "Program write disabled");
     Serial.println(_dev->ConfigurationFlags.lvp ? "Low Voltage Programming enabled" : "Low Voltage Programming disabled");
-    Serial.println(_dev->ConfigurationFlags._pwrte ? "Power-Up timer disabled" : "Power-Up timer enabled");
+    Serial.println(_dev->ConfigurationFlags.pwrte ? "Power-Up timer disabled" : "Power-Up timer enabled");
     Serial.println(_dev->ConfigurationFlags.wdte ? "Watchdog timer enabled" : "Watchdog timer disabled");
     Serial.print("Oscillator: ");
     Serial.println(_dev->ConfigurationFlags.osc == 3 ? "RC" : _dev->ConfigurationFlags.osc == 2 ? "HS" : _dev->ConfigurationFlags.osc == 1 ? "XT" : "LP");
     Serial.flush();
+}
+
+void assert(bool cond, const char mess[]) {
+    if (!cond) {
+        Serial.print("Error in PIC_Programmer.cpp: ");
+        Serial.println(mess);
+        while (true) _NOP();
+    }
+}
+
+void PIC_Programmer::EraseProgram() {
+    assert(false, "EraseProgram: Not implemented");
+    sendCommand(Device::Cmd::loadProg);
+    sendWord(0x3FFF);
+    eraseSequence();
+}
+
+void PIC_Programmer::EraseData() {
+    assert(false, "EraseData: Not implemented");
+    sendCommand(Device::Cmd::loadData);
+    sendWord(0x3FFF);
+    eraseSequence();
+}
+
+void PIC_Programmer::EraseChip() {
+    if (_dev->isProtected()) {
+        Serial.println("Erase protected memory");
+        assert(_dev->ConfigurationFlags.cp == 3, "Хуй залупа");
+        startProgramMode();
+        enterConfiguration();
+        increasePc(7);
+        assert (_dev->Pc() == 0x2007, "Wrong adress");
+        //sendCommand(Device::Cmd::loadProg);
+        //sendWord(0x3FFF, false);
+        eraseSequence();
+        stopProgramMode();
+        startProgramMode();
+        enterConfiguration();
+        increasePc(7);
+        //Serial.println(readWord(false));
+        //sendCommand(Device::Cmd::loadProg);
+        //sendWord(0x3FFF, false);
+        stopProgramMode();
+    } else {
+        EraseProgram();
+        EraseData();
+    }
 }
 
 // Private functions {{{2
@@ -128,7 +178,7 @@ void PIC_Programmer::sendCommand(Device::Cmd cmd) {
 
 // sendWord(Word, bool) {{{3
 void PIC_Programmer::sendWord(Word w, bool step) {
-    bool isData = _dev->pcInData();
+    bool isData = _dev->isPcInData();
     sendCommand(isData ? Device::Cmd::loadData
                        : Device::Cmd::loadProg);
     sendBit(0);
@@ -136,13 +186,13 @@ void PIC_Programmer::sendWord(Word w, bool step) {
         sendBit(w, b);
     sendBit(0);
     if (step) increasePc();
-    delayMicroseconds(1);
+    delayMicroseconds(2);
 }
 
 // readWord() {{{3
 Word PIC_Programmer::readWord(bool step) {
     Word w = 0;
-    bool isData = _dev->pcInData();
+    bool isData = _dev->isPcInData();
     sendCommand(isData ? Device::Cmd::readData
                        : Device::Cmd::readProg);
     sendBit(0);
@@ -163,12 +213,11 @@ void PIC_Programmer::readWord(Word w[], int count) {
 }
 
 // increasePc(PcSize) {{{3
-PcSize PIC_Programmer::increasePc(PcSize count) {
+void PIC_Programmer::increasePc(PcSize count) {
     for (int i = 0; i < count; i++) {
         sendCommand(Device::Cmd::pcInc);
     }
-    delayMicroseconds(1);
-    return _dev->IncreasePc(count);
+    _dev->IncreasePc(count);
 }
 
 // startProgramMode() {{{3
@@ -196,14 +245,14 @@ void PIC_Programmer::stopProgramMode() {
     // TODO 100ns Delay
     delayMicroseconds(1);
     delayMicroseconds(5);       // TODO Device.programModeDelay
-    _dev->JumpExit();
+    _dev->Jump(Device::MemoryBlock::Exit);
 }
 
 // enterConfiguration() {{{3
 void PIC_Programmer::enterConfiguration() {
     sendCommand(Device::Cmd::loadConf);
-    sendWord(0xFFFF, false);
-    _dev->JumpConfiguration();
+    sendWord(0x3FFF, false);
+    _dev->Jump(Device::MemoryBlock::Configuration);
 }
 
 // serialWriteWord(Word) {{{3
@@ -219,3 +268,11 @@ int PIC_Programmer::serialWriteWord(Word w[], int count) {
     return bytes;
 }
 
+void PIC_Programmer::eraseSequence() {
+    sendCommand(Device::Cmd::bulkErase1);
+    sendCommand(Device::Cmd::bulkErase2);
+    sendCommand(Device::Cmd::begEraseProg);
+    delay(8);
+    sendCommand(Device::Cmd::bulkErase1);
+    sendCommand(Device::Cmd::bulkErase2);
+}

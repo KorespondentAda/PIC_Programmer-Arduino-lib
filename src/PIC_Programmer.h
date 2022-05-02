@@ -19,7 +19,9 @@ public:
     void ReadProgram();
     void ReadData();
     void ReadChip();
-    void CleanChip();
+    void EraseProgram();
+    void EraseData();
+    void EraseChip();
     void WriteConfiguration();
     void WriteProgram();
     void WriteData();
@@ -36,7 +38,7 @@ private:
                                     // Power (Vdd)          XXX PIC_20
                                     // Ground (Vss)         XXX PIC_8 | PIC_19
 
-    Device *_dev;                    // Device description
+    Device *_dev;                   // Device description
 
     void pinSet(int);               // Set digital pin to High voltage
     void pinReset(int);             // Reset digital pin to Low voltage
@@ -51,11 +53,13 @@ private:
     Word readWord(bool = true);
     void readWord(Word[], int);
 
-    PcSize increasePc(PcSize = 1);
+    void increasePc(PcSize = 1);
 
     void startProgramMode();        // Enter programming mode on chip
     void stopProgramMode();         // Exit chip from programming mode
     void enterConfiguration();      // Enter configuration memory space
+
+    void eraseSequence();
 
     int serialWriteWord(Word);
     int serialWriteWord(Word*, int = 1);

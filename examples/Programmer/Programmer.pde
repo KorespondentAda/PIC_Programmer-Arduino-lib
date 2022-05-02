@@ -4,6 +4,7 @@ PIC_Programmer pic(2, 3, 4, 8);
 
 void setup() {
     pic.Init();
+    //pic.EraseChip();
     pic.ReadConfiguration(false);
     pic.PrintConfiguration();
     //pic.ReadChip();

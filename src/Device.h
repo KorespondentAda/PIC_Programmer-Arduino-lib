@@ -34,7 +34,7 @@ public:
                                 // 10 - HS
                                 // 11 - RC - internal RC osc
         unsigned wdte   : 1;    // bits 2; watchdog timer enable
-        unsigned _pwrte : 1;    // bits 3; power-up timer enable (inverted)
+        unsigned pwrte  : 1;    // bits 3; power-up timer enable (inverted)
         unsigned cp     : 2;    // bits 4-5; code protection:
                                 // 00 - from 0 to end,
                                 // 01 - from 1/3 to end,
@@ -42,7 +42,7 @@ public:
                                 // 11 - protection off
         unsigned boden  : 1;    // bits 6; brown-out reset enable
         unsigned lvp    : 1;    // bits 7; low voltage icsp programming enable
-        unsigned _cpd   : 1;    // bits 8; data EE memory protection (inverted)
+        unsigned cpd    : 1;    // bits 8; data EE memory protection (inverted)
         unsigned wrt    : 1;    // bits 9; program memory write enable
         unsigned unim   : 1;    // bits 10; unimplemented, read as 1
         unsigned res    : 1;    // bits 11; reserved, set 1 to be okay
@@ -61,14 +61,19 @@ public:
     Word idLocations[4];
     int idLocationsCount;
 
-    PcSize Pc() { return _pc; }
-    PcSize ResetPc() { return _pc = 0; }
-    PcSize IncreasePc(PcSize count = 1) { return _pc += count; }
-    PcSize JumpExit() { return _pc = -1; }
-    PcSize JumpProgram() { return _pc = 0; }
-    PcSize JumpConfiguration() { return _pc = 0x2000; }
-    PcSize JumpData() { return _pc = 0x2100; }
-    bool pcInData() { return _pc >= 0x2100; }
+    enum class MemoryBlock : PcSize {
+        Program         = 0x0000,
+        Configuration   = 0x2000,
+        Data            = 0x2100,
+        Exit            = 0x7FFF,
+    };
+
+    PcSize Pc() const { return _pc; }
+    void ResetPc() { _pc = 0; }
+    void IncreasePc(PcSize count = 1) { _pc += count; }
+    void Jump(MemoryBlock mb) { _pc = static_cast<PcSize>(mb); }
+    bool isPcInData() { return _pc >= 0x2100; }
+    bool isProtected() { return (ConfigurationFlags.cp < 3) || (ConfigurationFlags.cpd == 0); }
 
 private:
     Word _devId;

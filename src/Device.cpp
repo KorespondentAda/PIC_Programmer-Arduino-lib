@@ -1,10 +1,6 @@
 // vim:set foldmethod=marker ft=arduino:
 #include "Device.h"
-#include "Arduino.h"
 
-// Device {{{1
-// Public functions {{{2
-// Constructors {{{3
 Device::Device() {
     ProgramWordLength = 14;
     DataWordLength = 8;
@@ -27,3 +23,4 @@ Device::Device(const Device& b) {
     ConfigurationWord = b.ConfigurationWord;
     idLocationsCount = b.idLocationsCount;
 }
+
