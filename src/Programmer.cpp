@@ -6,6 +6,19 @@
 
 namespace pic {
 
+// Internal methods
+
+void assert(bool cond, const char mess[]) {
+    if (!cond) {
+        Serial.print("Error in Programmer.cpp: ");
+        Serial.println(mess);
+        while (true) _NOP();
+    }
+}
+
+
+// Public methods
+
 Programmer::Programmer(int pPgm, int pPgc, int pPgd, int pMclr) :
     _pgm(pPgm), _pgc(pPgc), _pgd(pPgd), _mclr(pMclr), _dev(new Device) { }
 
@@ -27,8 +40,7 @@ void Programmer::ReadConfiguration(bool verbose) {
     startProgramMode();
     enterConfiguration();
     readWord(_dev->idLocations, _dev->idLocationsCount);
-    increasePc();
-    increasePc();
+    increasePc(2);
     _dev->Id(readWord());
     _dev->ConfigurationWord = readWord();
     stopProgramMode();
@@ -74,23 +86,15 @@ void Programmer::PrintConfiguration() {
     Serial.flush();
 }
 
-void assert(bool cond, const char mess[]) {
-    if (!cond) {
-        Serial.print("Error in Programmer.cpp: ");
-        Serial.println(mess);
-        while (true) _NOP();
-    }
-}
-
 void Programmer::EraseProgram() {
-    assert(false, "EraseProgram: Not implemented");
+    Serial.println("Erasing program memory...");
     sendCommand(Device::Cmd::loadProg);
     sendWord(0x3FFF);
     eraseSequence();
 }
 
 void Programmer::EraseData() {
-    assert(false, "EraseData: Not implemented");
+    Serial.println("Erasing data memory...");
     sendCommand(Device::Cmd::loadData);
     sendWord(0x3FFF);
     eraseSequence();
@@ -109,7 +113,40 @@ void Programmer::EraseChip() {
         EraseProgram();
         EraseData();
     }
+    Serial.println("Chip erased");
 }
+
+void Programmer::WriteConfiguration() {
+    startProgramMode();
+    enterConfiguration();
+    writeWord(_dev->idLocations, 4, false);
+    increasePc(3);
+    writeWord(_dev->ConfigurationWord, false);
+    stopProgramMode();
+}
+
+void Programmer::WriteChip() {
+    WriteProgram();
+    WriteData();
+    WriteConfiguration();
+}
+
+void Programmer::RewriteChip() {
+    EraseChip();
+    WriteChip();
+}
+
+void Programmer::SetConfigurationIdLocation(Word idLocation, int number) {
+    assert(number < _dev->idLocationsCount, "Error: number of ID Location greater than count");
+    _dev->idLocations[number] = idLocation;
+}
+
+void Programmer::SetConfigurationWord(Word confWord) {
+    _dev->ConfigurationWord = confWord;
+}
+
+
+// Private methods
 
 void Programmer::pinSet(int pin) {
     digitalWrite(pin, HIGH);
@@ -147,16 +184,17 @@ void Programmer::sendCommand(Device::Cmd cmd) {
     delayMicroseconds(1);
 }
 
-void Programmer::sendWord(Word w, bool step) {
+void Programmer::sendWord(Word w, bool step, bool conf) {
     bool isData = _dev->isPcInData();
-    sendCommand(isData ? Device::Cmd::loadData
-                       : Device::Cmd::loadProg);
+    sendCommand(     conf ? Device::Cmd::loadConf
+                 : isData ? Device::Cmd::loadData
+                          : Device::Cmd::loadProg);
     sendBit(0);
-    for (int b = 0; b < _dev->ProgramWordLength; b++)
+    for (int b = 0; b < (isData ? _dev->DataWordLength : _dev->ProgramWordLength); b++)
         sendBit(w, b);
     sendBit(0);
     if (step) increasePc();
-    delayMicroseconds(2);
+    delayMicroseconds(1);
 }
 
 Word Programmer::readWord(bool step) {
@@ -178,6 +216,22 @@ Word Programmer::readWord(bool step) {
 void Programmer::readWord(Word w[], int count) {
     for (int i = 0; i < count; i++)
         w[i] = readWord();
+}
+
+void Programmer::writeWord(Word payload, bool erase, int retries, bool step) {
+    do {
+        sendWord(payload, false);
+        sendCommand(erase ? Device::Cmd::begEraseProg
+                          : Device::Cmd::begProg);
+        if (erase) delay(4);
+        delay(4);
+    } while (retries-- > 0 && readWord(false) != payload);
+    if (step) increasePc();
+}
+
+void Programmer::writeWord(Word payload[], int count, bool erase, int retries) {
+    for (int i = 0; i < count; i++)
+        writeWord(payload[i], erase, retries);
 }
 
 void Programmer::increasePc(PcSize count) {
@@ -214,8 +268,7 @@ void Programmer::stopProgramMode() {
 }
 
 void Programmer::enterConfiguration() {
-    sendCommand(Device::Cmd::loadConf);
-    sendWord(0x3FFF, false);
+    sendWord(0x3FFF, false, true);
     _dev->Jump(Device::MemoryBlock::Configuration);
 }
 
@@ -237,10 +290,6 @@ void Programmer::eraseSequence() {
     delay(8);
     sendCommand(Device::Cmd::bulkErase1);
     sendCommand(Device::Cmd::bulkErase2);
-}
-
-void Programmer::RewriteChip() {
-    return;
 }
 
 };

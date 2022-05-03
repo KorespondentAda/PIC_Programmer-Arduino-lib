@@ -31,6 +31,9 @@ public:
 
     // Helpers
     void PrintConfiguration();
+    void SetConfigurationIdLocation(Word idLocation, int number);
+    void SetConfigurationWord(Word confWord);
+
 private:
     int _pgm;                       // Pin ProGram Mode     XXX PIC_23
     int _pgc;                       // Pin ProGram Clock    XXX PIC_27
@@ -50,9 +53,11 @@ private:
     void sendBit(Word w, int b) { sendBit(bitRead(w, b)); }
     Word readBit();
     void sendCommand(Device::Cmd);
-    void sendWord(Word, bool = true);
+    void sendWord(Word, bool = true, bool = false);
     Word readWord(bool = true);
     void readWord(Word[], int);
+    void writeWord(Word, bool = true, int = 3, bool = true);
+    void writeWord(Word[], int, bool = true, int = 3);
 
     void increasePc(PcSize = 1);
 
