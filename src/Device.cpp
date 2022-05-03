@@ -1,5 +1,6 @@
-// vim:set foldmethod=marker ft=arduino:
 #include "Device.h"
+
+namespace pic {
 
 Device::Device() {
     ProgramWordLength = 14;
@@ -23,4 +24,6 @@ Device::Device(const Device& b) {
     ConfigurationWord = b.ConfigurationWord;
     idLocationsCount = b.idLocationsCount;
 }
+
+};
 

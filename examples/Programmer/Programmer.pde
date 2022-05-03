@@ -1,14 +1,13 @@
-#include <PIC_Programmer.h>
+#include <Programmer.h>
 
-PIC_Programmer pic(2, 3, 4, 8);
+pic::Programmer controller(2, 3, 4, 8);
 
 void setup() {
-    pic.Init();
-    //pic.EraseChip();
-    pic.ReadConfiguration(false);
-    pic.PrintConfiguration();
-    //pic.ReadChip();
-    //pic.RewriteChip();
+    controller.Init();
+    controller.EraseChip();
+    controller.ReadConfiguration(false);
+    controller.PrintConfiguration();
+    controller.RewriteChip();
 }
 
 void loop() {

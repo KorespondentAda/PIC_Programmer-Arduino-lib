@@ -1,6 +1,5 @@
-// vim:set foldmethod=marker ft=arduino:
 /*
- * PIC_Programmer.h - Library for programming PIC microcontrollers
+ * Programmer.h - Library for programming PIC microcontrollers
  * Created by KorespondentAda
  */
 #pragma once
@@ -8,10 +7,12 @@
 #include "Arduino.h"
 #include "Device.h"
 
-class PIC_Programmer {
+namespace pic {
+
+class Programmer {
 public:
     // Set pins to work with chip through
-    PIC_Programmer(int, int, int, int);
+    Programmer(int, int, int, int);
 
     // Interface
     void Init();
@@ -63,4 +64,6 @@ private:
 
     int serialWriteWord(Word);
     int serialWriteWord(Word*, int = 1);
+};
+
 };

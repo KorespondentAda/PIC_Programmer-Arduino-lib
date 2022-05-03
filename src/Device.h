@@ -1,5 +1,6 @@
-// vim:set foldmethod=marker ft=arduino:
 #pragma once
+
+namespace pic {
 
 using Word = short;
 static_assert(sizeof(Word) == 2);
@@ -78,5 +79,7 @@ public:
 private:
     Word _devId;
     PcSize _pc;
+
+};
 
 };

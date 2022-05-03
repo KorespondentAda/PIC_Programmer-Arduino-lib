@@ -1,24 +1,18 @@
-// vim:set foldmethod=marker ft=arduino:
 /*
- * PIC_Programmer.cpp - Library for programming PIC microcontrollers
+ * Programmer.cpp - Library for programming PIC microcontrollers
  * Created by KorespondentAda
  */
-#include "PIC_Programmer.h"
+#include "Programmer.h"
 
-// PIC_Programmer {{{1
-// Public functions {{{2
-// Constructor {{{3
-PIC_Programmer::PIC_Programmer(int pPgm, int pPgc, int pPgd, int pMclr) :
-    _pgm(pPgm), _pgc(pPgc), _pgd(pPgd), _mclr(pMclr), _dev(new Device) {
-}
+namespace pic {
 
-// Init(Device) {{{3
-void PIC_Programmer::Init() {
-    // Init serial port for communication
+Programmer::Programmer(int pPgm, int pPgc, int pPgd, int pMclr) :
+    _pgm(pPgm), _pgc(pPgc), _pgd(pPgd), _mclr(pMclr), _dev(new Device) { }
+
+void Programmer::Init() {
     Serial.begin(9600);
     Serial.println("Serial started");
 
-    // Set up pins
     pinMode(_pgm, OUTPUT);
     pinMode(_pgc, OUTPUT);
     pinMode(_pgd, OUTPUT);
@@ -29,8 +23,7 @@ void PIC_Programmer::Init() {
     pinReset(_mclr);
 }
 
-// ReadConfiguration(bool) {{{3
-void PIC_Programmer::ReadConfiguration(bool verbose) {
+void Programmer::ReadConfiguration(bool verbose) {
     startProgramMode();
     enterConfiguration();
     readWord(_dev->idLocations, _dev->idLocationsCount);
@@ -47,8 +40,7 @@ void PIC_Programmer::ReadConfiguration(bool verbose) {
     }
 }
 
-// PrintConfiguration() {{{3
-void PIC_Programmer::PrintConfiguration() {
+void Programmer::PrintConfiguration() {
     Serial.println();
     Serial.println("Chip configuration:");
     Serial.print("Location ID1: ");
@@ -60,15 +52,12 @@ void PIC_Programmer::PrintConfiguration() {
     Serial.print("Location ID4: ");
     Serial.println(_dev->idLocations[3]);
 
-    // TODO rewrite this part
     Serial.print("Device ID: ");
     Serial.print(_dev->Id());
     Serial.print(", rev. ");
     Serial.println(_dev->Id() & 0x1F);
 
-    // TODO Parse config word to readable parameters
     Serial.print("Configuration flags (");
-    // TODO rewrite typecast; make chip_conf as child of word
     Serial.print(_dev->ConfigurationWord);
     Serial.println("): ");
     Serial.print(_dev->ConfigurationFlags.cp == 3 ? "Code not protected" : "Code protected");
@@ -87,44 +76,34 @@ void PIC_Programmer::PrintConfiguration() {
 
 void assert(bool cond, const char mess[]) {
     if (!cond) {
-        Serial.print("Error in PIC_Programmer.cpp: ");
+        Serial.print("Error in Programmer.cpp: ");
         Serial.println(mess);
         while (true) _NOP();
     }
 }
 
-void PIC_Programmer::EraseProgram() {
+void Programmer::EraseProgram() {
     assert(false, "EraseProgram: Not implemented");
     sendCommand(Device::Cmd::loadProg);
     sendWord(0x3FFF);
     eraseSequence();
 }
 
-void PIC_Programmer::EraseData() {
+void Programmer::EraseData() {
     assert(false, "EraseData: Not implemented");
     sendCommand(Device::Cmd::loadData);
     sendWord(0x3FFF);
     eraseSequence();
 }
 
-void PIC_Programmer::EraseChip() {
+void Programmer::EraseChip() {
     if (_dev->isProtected()) {
         Serial.println("Erase protected memory");
-        assert(_dev->ConfigurationFlags.cp == 3, "Хуй залупа");
         startProgramMode();
         enterConfiguration();
         increasePc(7);
-        assert (_dev->Pc() == 0x2007, "Wrong adress");
-        //sendCommand(Device::Cmd::loadProg);
-        //sendWord(0x3FFF, false);
+        assert(_dev->Pc() == 0x2007, "Wrong adress");
         eraseSequence();
-        stopProgramMode();
-        startProgramMode();
-        enterConfiguration();
-        increasePc(7);
-        //Serial.println(readWord(false));
-        //sendCommand(Device::Cmd::loadProg);
-        //sendWord(0x3FFF, false);
         stopProgramMode();
     } else {
         EraseProgram();
@@ -132,52 +111,43 @@ void PIC_Programmer::EraseChip() {
     }
 }
 
-// Private functions {{{2
-// pinSet(int) {{{3
-void PIC_Programmer::pinSet(int pin) {
+void Programmer::pinSet(int pin) {
     digitalWrite(pin, HIGH);
 }
 
-// pinReset(int) {{{3
-void PIC_Programmer::pinReset(int pin) {
+void Programmer::pinReset(int pin) {
     digitalWrite(pin, LOW);
 }
 
-// clockDelay() {{{3
-void PIC_Programmer::clockDelay() {
+void Programmer::clockDelay() {
     _NOP();     // TODO Replace with calculated timings
 }
 
-// clockPulse() {{{3
-void PIC_Programmer::clockPulse() {
+void Programmer::clockPulse() {
     pinSet(_pgc);
     clockDelay();
     pinReset(_pgc);
     clockDelay();
 }
 
-// sendBit(bool) {{{3
-void PIC_Programmer::sendBit(bool b) {
+void Programmer::sendBit(bool b) {
     b ? pinSet(_pgd)
       : pinReset(_pgd);
     clockPulse();
 }
 
-// readBit() {{{3
-Word PIC_Programmer::readBit() {
+Word Programmer::readBit() {
     clockPulse();
     return digitalRead(_pgd);
 }
 
-// sendCommand(Device::Cmd) {{{3
-void PIC_Programmer::sendCommand(Device::Cmd cmd) {
+void Programmer::sendCommand(Device::Cmd cmd) {
     for (int b = 0; b < _dev->CommandLength; b++)
         sendBit(cmd, b);
     delayMicroseconds(1);
 }
 
-// sendWord(Word, bool) {{{3
-void PIC_Programmer::sendWord(Word w, bool step) {
+void Programmer::sendWord(Word w, bool step) {
     bool isData = _dev->isPcInData();
     sendCommand(isData ? Device::Cmd::loadData
                        : Device::Cmd::loadProg);
@@ -189,8 +159,7 @@ void PIC_Programmer::sendWord(Word w, bool step) {
     delayMicroseconds(2);
 }
 
-// readWord() {{{3
-Word PIC_Programmer::readWord(bool step) {
+Word Programmer::readWord(bool step) {
     Word w = 0;
     bool isData = _dev->isPcInData();
     sendCommand(isData ? Device::Cmd::readData
@@ -206,22 +175,19 @@ Word PIC_Programmer::readWord(bool step) {
     return w;
 }
 
-// readWord(Word[], int) {{{3
-void PIC_Programmer::readWord(Word w[], int count) {
+void Programmer::readWord(Word w[], int count) {
     for (int i = 0; i < count; i++)
         w[i] = readWord();
 }
 
-// increasePc(PcSize) {{{3
-void PIC_Programmer::increasePc(PcSize count) {
+void Programmer::increasePc(PcSize count) {
     for (int i = 0; i < count; i++) {
         sendCommand(Device::Cmd::pcInc);
     }
     _dev->IncreasePc(count);
 }
 
-// startProgramMode() {{{3
-void PIC_Programmer::startProgramMode() {
+void Programmer::startProgramMode() {
     pinReset(_pgc);
     pinReset(_pgd);
     pinSet(_pgm);
@@ -234,8 +200,7 @@ void PIC_Programmer::startProgramMode() {
     _dev->ResetPc();
 }
 
-// stopProgramMode() {{{3
-void PIC_Programmer::stopProgramMode() {
+void Programmer::stopProgramMode() {
     pinReset(_pgc);
     pinReset(_pgd);
     pinReset(_mclr);
@@ -248,27 +213,24 @@ void PIC_Programmer::stopProgramMode() {
     _dev->Jump(Device::MemoryBlock::Exit);
 }
 
-// enterConfiguration() {{{3
-void PIC_Programmer::enterConfiguration() {
+void Programmer::enterConfiguration() {
     sendCommand(Device::Cmd::loadConf);
     sendWord(0x3FFF, false);
     _dev->Jump(Device::MemoryBlock::Configuration);
 }
 
-// serialWriteWord(Word) {{{3
-int PIC_Programmer::serialWriteWord(Word w) {
+int Programmer::serialWriteWord(Word w) {
     return Serial.write(highByte(w)) + Serial.write(lowByte(w));
 }
 
-// serialWriteWord(Word*, int) {{{3
-int PIC_Programmer::serialWriteWord(Word w[], int count) {
+int Programmer::serialWriteWord(Word w[], int count) {
     size_t bytes = 0;
     for (int i = 0; i < count; i++)
         bytes += Serial.write(highByte(*(w + i))) + Serial.write(lowByte(*(w + i)));
     return bytes;
 }
 
-void PIC_Programmer::eraseSequence() {
+void Programmer::eraseSequence() {
     sendCommand(Device::Cmd::bulkErase1);
     sendCommand(Device::Cmd::bulkErase2);
     sendCommand(Device::Cmd::begEraseProg);
@@ -276,3 +238,10 @@ void PIC_Programmer::eraseSequence() {
     sendCommand(Device::Cmd::bulkErase1);
     sendCommand(Device::Cmd::bulkErase2);
 }
+
+void Programmer::RewriteChip() {
+    return;
+}
+
+};
+
