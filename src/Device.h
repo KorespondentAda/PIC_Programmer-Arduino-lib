@@ -28,6 +28,11 @@ public:
     int DataWordLength;
     int CommandLength;
 
+    int ProgramMemoryStart;
+    int ProgramMemoryStop;
+    int DataMemoryStart;
+    int DataMemoryStop;
+
     struct Flags {
         unsigned osc    : 2;    // bits 0-1; oscillator select:
                                 // 00 - LP
@@ -71,7 +76,7 @@ public:
 
     PcSize Pc() const { return _pc; }
     void ResetPc() { _pc = 0; }
-    void IncreasePc(PcSize count = 1) { _pc += count; }
+    void IncreasePc(PcSize = 1);
     void Jump(MemoryBlock mb) { _pc = static_cast<PcSize>(mb); }
     bool isPcInData() { return _pc >= 0x2100; }
     bool isProtected() { return (ConfigurationFlags.cp < 3) || (ConfigurationFlags.cpd == 0); }

@@ -8,8 +8,17 @@ namespace pic {
 
 // Internal methods
 
+void assert(bool cond) {
+    if (!cond) {
+        Serial.println();
+        Serial.println("Runtime error in Programmer.cpp. Halt.");
+        while (true) _NOP();
+    }
+}
+
 void assert(bool cond, const char mess[]) {
     if (!cond) {
+        Serial.println();
         Serial.print("Error in Programmer.cpp: ");
         Serial.println(mess);
         while (true) _NOP();
@@ -20,7 +29,7 @@ void assert(bool cond, const char mess[]) {
 // Public methods
 
 Programmer::Programmer(int pPgm, int pPgc, int pPgd, int pMclr) :
-    _pgm(pPgm), _pgc(pPgc), _pgd(pPgd), _mclr(pMclr), _dev(new Device) { }
+    _pgm(pPgm), _pgc(pPgc), _pgd(pPgd), _mclr(pMclr), _dev(new Device), _hexBufferSize(0x10) { }
 
 void Programmer::Init() {
     Serial.begin(9600);
@@ -36,7 +45,7 @@ void Programmer::Init() {
     pinReset(_mclr);
 }
 
-void Programmer::ReadConfiguration(bool verbose) {
+void Programmer::ReadConfiguration() {
     startProgramMode();
     enterConfiguration();
     readWord(_dev->idLocations, _dev->idLocationsCount);
@@ -44,12 +53,51 @@ void Programmer::ReadConfiguration(bool verbose) {
     _dev->Id(readWord());
     _dev->ConfigurationWord = readWord();
     stopProgramMode();
-    if (verbose) {
-        serialWriteWord(_dev->idLocations, _dev->idLocationsCount);
-        serialWriteWord(0, 2);
-        serialWriteWord(_dev->Id());
-        serialWriteWord(_dev->ConfigurationWord);
+}
+
+void Programmer::ReadProgram(int count) {
+    if (count == 0) {
+        count = _dev->ProgramMemoryStop - _dev->ProgramMemoryStart;
     }
+    Word buffer[_hexBufferSize];
+    uint8_t recordSize, checksum;
+    startProgramMode();
+    while (count > 0) {
+        if (count > _hexBufferSize) {
+            recordSize = _hexBufferSize;
+        } else {
+            recordSize = count;
+        }
+        checksum = 0;
+        // Start record
+        assert(Serial.print(":") == 1);
+        // Record data size
+        assert(serialPrintByte(recordSize) == 2);
+        checksum += recordSize;
+        // Record start address
+        assert(serialPrintWord(_dev->Pc(), false) == 4);
+        checksum += highByte(_dev->Pc());
+        checksum +=  lowByte(_dev->Pc());
+        // Record data type - default
+        assert(serialPrintByte(0) == 2);
+        // Record data - read & print
+        readWord(buffer, recordSize);
+        assert(serialPrintWord(buffer, recordSize) == 4*recordSize);
+        for (int i = 0; i < recordSize; i++) {
+            checksum += highByte(buffer[i]);
+            checksum +=  lowByte(buffer[i]);
+        }
+        // Checksum calculate - two's complement of record bytes sum
+        checksum = (~checksum) + 1;
+        assert(serialPrintByte(checksum) == 2);
+        Serial.println();
+        count -= recordSize;
+    }
+    stopProgramMode();
+    // EOF sequence
+    Serial.println(":00000001FF");
+    Serial.println();
+    Serial.println("Program readed");
 }
 
 void Programmer::PrintConfiguration() {
@@ -88,16 +136,20 @@ void Programmer::PrintConfiguration() {
 
 void Programmer::EraseProgram() {
     Serial.println("Erasing program memory...");
-    sendCommand(Device::Cmd::loadProg);
+    startProgramMode();
     sendWord(0x3FFF);
     eraseSequence();
+    stopProgramMode();
 }
 
 void Programmer::EraseData() {
     Serial.println("Erasing data memory...");
-    sendCommand(Device::Cmd::loadData);
+    startProgramMode();
+    enterConfiguration();
+    increasePc(0x0100);
     sendWord(0x3FFF);
     eraseSequence();
+    stopProgramMode();
 }
 
 void Programmer::EraseChip() {
@@ -272,6 +324,15 @@ void Programmer::enterConfiguration() {
     _dev->Jump(Device::MemoryBlock::Configuration);
 }
 
+void Programmer::eraseSequence() {
+    sendCommand(Device::Cmd::bulkErase1);
+    sendCommand(Device::Cmd::bulkErase2);
+    sendCommand(Device::Cmd::begEraseProg);
+    delay(8);
+    sendCommand(Device::Cmd::bulkErase1);
+    sendCommand(Device::Cmd::bulkErase2);
+}
+
 int Programmer::serialWriteWord(Word w) {
     return Serial.write(highByte(w)) + Serial.write(lowByte(w));
 }
@@ -283,13 +344,30 @@ int Programmer::serialWriteWord(Word w[], int count) {
     return bytes;
 }
 
-void Programmer::eraseSequence() {
-    sendCommand(Device::Cmd::bulkErase1);
-    sendCommand(Device::Cmd::bulkErase2);
-    sendCommand(Device::Cmd::begEraseProg);
-    delay(8);
-    sendCommand(Device::Cmd::bulkErase1);
-    sendCommand(Device::Cmd::bulkErase2);
+int Programmer::serialPrintByte(uint8_t byte) {
+    int printed = 0;
+    if (byte < 0x10)
+        printed += Serial.print("0");
+    printed += Serial.print(byte, HEX);
+    return printed;
+}
+
+int Programmer::serialPrintWord(Word w, bool le) {
+    int printed = 0;
+    uint8_t b;
+    b = le ? lowByte(w) : highByte(w);
+    printed += serialPrintByte(b);
+    b = le ? highByte(w) : lowByte(w);
+    printed += serialPrintByte(b);
+    return printed;
+}
+
+int Programmer::serialPrintWord(Word w[], int count, bool le) {
+    int printed = 0;
+    for (int i = 0; i < count; i++) {
+        printed += serialPrintWord(w[i], le);
+    }
+    return printed;
 }
 
 };

@@ -16,8 +16,8 @@ public:
 
     // Interface
     void Init();
-    void ReadConfiguration(bool = true);
-    void ReadProgram();
+    void ReadConfiguration();
+    void ReadProgram(int count = 0);
     void ReadData();
     void ReadChip();
     void EraseProgram();
@@ -44,6 +44,8 @@ private:
 
     Device *_dev;                   // Device description
 
+    int _hexBufferSize;             // Buffer size for hex read/write sequence
+
     void pinSet(int);               // Set digital pin to High voltage
     void pinReset(int);             // Reset digital pin to Low voltage
 
@@ -69,6 +71,9 @@ private:
 
     int serialWriteWord(Word);
     int serialWriteWord(Word*, int = 1);
+    int serialPrintByte(uint8_t);
+    int serialPrintWord(Word, bool = true);
+    int serialPrintWord(Word*, int = 1, bool = true);
 };
 
 };
