@@ -59,14 +59,14 @@ void Programmer::ReadProgram(int count) {
     if (count == 0) {
         count = _dev->ProgramMemoryStop - _dev->ProgramMemoryStart;
     }
-    Word buffer[_hexBufferSize];
+    Word buffer[_hexBufferSize / 2];
     uint8_t recordSize, checksum;
     startProgramMode();
     while (count > 0) {
-        if (count > _hexBufferSize) {
+        if (count * 2 > _hexBufferSize) {
             recordSize = _hexBufferSize;
         } else {
-            recordSize = count;
+            recordSize = count * 2;
         }
         checksum = 0;
         // Start record
@@ -75,15 +75,15 @@ void Programmer::ReadProgram(int count) {
         assert(serialPrintByte(recordSize) == 2);
         checksum += recordSize;
         // Record start address
-        assert(serialPrintWord(_dev->Pc(), false) == 4);
-        checksum += highByte(_dev->Pc());
-        checksum +=  lowByte(_dev->Pc());
+        assert(serialPrintWord(_dev->Pc() * 2, false) == 4);
+        checksum += highByte(_dev->Pc() * 2);
+        checksum +=  lowByte(_dev->Pc() * 2);
         // Record data type - default
         assert(serialPrintByte(0) == 2);
         // Record data - read & print
-        readWord(buffer, recordSize);
-        assert(serialPrintWord(buffer, recordSize) == 4*recordSize);
-        for (int i = 0; i < recordSize; i++) {
+        readWord(buffer, recordSize / 2);
+        assert(serialPrintWord(buffer, recordSize / 2) == 2*recordSize);
+        for (int i = 0; i < recordSize / 2; i++) {
             checksum += highByte(buffer[i]);
             checksum +=  lowByte(buffer[i]);
         }
@@ -91,7 +91,7 @@ void Programmer::ReadProgram(int count) {
         checksum = (~checksum) + 1;
         assert(serialPrintByte(checksum) == 2);
         Serial.println();
-        count -= recordSize;
+        count -= recordSize / 2;
     }
     stopProgramMode();
     // EOF sequence
@@ -174,6 +174,59 @@ void Programmer::WriteConfiguration() {
     writeWord(_dev->idLocations, 4, false);
     increasePc(3);
     writeWord(_dev->ConfigurationWord, false);
+    stopProgramMode();
+}
+
+void Programmer::WriteProgram() {
+    uint8_t recordSize;
+    uint8_t recordType;
+    uint8_t checksum = 0;
+    Word recordAddress;
+    Word buff[_hexBufferSize];
+    Serial.println("Waiting for program input");
+    while (Serial.available() == 0);
+    startProgramMode();
+    while (true) {
+        while (Serial.read() != ':');
+        checksum = recordSize = serialReadByte();
+        Serial.print("Record size: ");
+        Serial.println(recordSize);
+        Serial.print("Buffer size: ");
+        Serial.println(_hexBufferSize);
+        Serial.print("Now checksum is: ");
+        Serial.println(checksum, HEX);
+        assert(recordSize % 2 == 0, "Bytes in record not aligned by words");
+        assert(recordSize <= _hexBufferSize, "Record data size larger than buffer size");
+        recordAddress = serialReadWord(false);
+        checksum += highByte(recordAddress);
+        checksum += lowByte(recordAddress);
+        Serial.print("Record address: ");
+        Serial.println(recordAddress);
+        Serial.print("Now checksum is: ");
+        Serial.println(checksum, HEX);
+        checksum += recordType = serialReadByte();
+        Serial.print("Record type: ");
+        Serial.println(recordType);
+        Serial.print("Now checksum is: ");
+        Serial.println(checksum, HEX);
+        for (int i = 0; i < recordSize / 2; i++) {
+            buff[i] = serialReadWord();
+            checksum += highByte(buff[i]) + lowByte(buff[i]);
+            Serial.print("Now checksum is: ");
+            Serial.println(checksum, HEX);
+        }
+        Serial.println("Data readed");
+        checksum += serialReadByte();
+        Serial.print("Resulting checksum: ");
+        Serial.println(checksum, HEX);
+        assert(checksum == 0, "Bad checksum");
+        if (recordSize == 0 && recordAddress == 0 && recordType == 1)
+            break;
+        else {
+            setPc(recordAddress / 2);
+            writeWord(buff, recordSize / 2, false);
+        }
+    }
     stopProgramMode();
 }
 
@@ -293,6 +346,22 @@ void Programmer::increasePc(PcSize count) {
     _dev->IncreasePc(count);
 }
 
+void Programmer::setPc(PcSize address) {
+    if (_dev->isPcInProgram())
+        if (_dev->isAddressInProgram(address)) {
+            if (_dev->Pc() > address) {
+                stopProgramMode();
+                startProgramMode();
+            }
+        } else
+            enterConfiguration();
+    else if (_dev->isAddressInProgram(address)) {
+        stopProgramMode();
+        startProgramMode();
+    }
+    increasePc(address - _dev->Pc());
+}
+
 void Programmer::startProgramMode() {
     pinReset(_pgc);
     pinReset(_pgd);
@@ -333,6 +402,34 @@ void Programmer::eraseSequence() {
     sendCommand(Device::Cmd::bulkErase2);
 }
 
+uint8_t Programmer::hex2byte(char high, char low) {
+    uint8_t res;
+    Serial.print("Converting hex ");
+    Serial.print(high);
+    Serial.print(low);
+    if (high >= '0' && high <= '9') {
+        res = (high - '0') << 4;
+    } else if (high >= 'A' && high <= 'F') {
+        res = (high - 'A' + 10) << 4;
+    } else if (high >= 'a' && high <= 'f') {
+        res = (high - 'a' + 10) << 4;
+    } else {
+    assert(false, "High symbol is invalid");
+    }
+    if (low >= '0' && low <= '9') {
+        res += (low - '0');
+    } else if (low >= 'A' && low <= 'F') {
+        res += (low - 'A' + 10);
+    } else if (low >= 'a' && low <= 'f') {
+        res += (low - 'a' + 10);
+    } else {
+    assert(false, "Low symbol is invalid");
+    }
+    Serial.print(" to byte ");
+    Serial.println(res);
+    return res;
+}
+
 int Programmer::serialWriteWord(Word w) {
     return Serial.write(highByte(w)) + Serial.write(lowByte(w));
 }
@@ -368,6 +465,21 @@ int Programmer::serialPrintWord(Word w[], int count, bool le) {
         printed += serialPrintWord(w[i], le);
     }
     return printed;
+}
+
+uint8_t Programmer::serialReadByte() {
+    while (Serial.available() < 2);
+    char h = Serial.read();
+    char l = Serial.read();
+    return hex2byte(h, l);
+}
+
+Word Programmer::serialReadWord(bool le) {
+    Word res;
+    res  = serialReadByte() << (le ? 0 : 8);
+    res += serialReadByte() << (le ? 8 : 0);
+    static_assert(uint8_t(0xFF) << 8 == 0xFF00);
+    return res;
 }
 
 };

@@ -67,7 +67,7 @@ public:
     Word idLocations[4];
     int idLocationsCount;
 
-    enum class MemoryBlock : PcSize {
+    enum MemoryBlock : PcSize {
         Program         = 0x0000,
         Configuration   = 0x2000,
         Data            = 0x2100,
@@ -78,7 +78,12 @@ public:
     void ResetPc() { _pc = 0; }
     void IncreasePc(PcSize = 1);
     void Jump(MemoryBlock mb) { _pc = static_cast<PcSize>(mb); }
-    bool isPcInData() { return _pc >= 0x2100; }
+    bool isPcInProgram() { return _pc >= MemoryBlock::Program && _pc < MemoryBlock::Configuration; }
+    bool isPcInConfiguration() { return _pc >= MemoryBlock::Configuration && _pc < MemoryBlock::Data; }
+    bool isPcInData() { return _pc >= MemoryBlock::Data && _pc < MemoryBlock::Exit; }
+    bool isAddressInProgram(PcSize addr) { return addr >= MemoryBlock::Program && addr < MemoryBlock::Configuration; }
+    bool isAddressInConfiguration(PcSize addr) { return addr >= MemoryBlock::Configuration && addr < MemoryBlock::Data; }
+    bool isAddressInData(PcSize addr) { return addr >= MemoryBlock::Data && addr < MemoryBlock::Exit; }
     bool isProtected() { return (ConfigurationFlags.cp < 3) || (ConfigurationFlags.cpd == 0); }
 
 private:
