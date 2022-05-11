@@ -53,7 +53,7 @@ private:
     void clockPulse();
     void sendBit(bool);
     void sendBit(Word w, int b) { sendBit(bitRead(w, b)); }
-    Word readBit();
+    bool readBit();
     void sendCommand(Device::Cmd);
     void sendWord(Word, bool = true, bool = false);
     Word readWord(bool = true);

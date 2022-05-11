@@ -278,7 +278,7 @@ void Programmer::sendBit(bool b) {
     clockPulse();
 }
 
-Word Programmer::readBit() {
+bool Programmer::readBit() {
     clockPulse();
     return digitalRead(_pgd);
 }
