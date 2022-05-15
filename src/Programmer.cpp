@@ -34,15 +34,6 @@ Programmer::Programmer(int pPgm, int pPgc, int pPgd, int pMclr) :
 void Programmer::Init() {
     Serial.begin(9600);
     Serial.println("Serial started");
-
-    pinMode(_pgm, OUTPUT);
-    pinMode(_pgc, OUTPUT);
-    pinMode(_pgd, OUTPUT);
-    pinMode(_mclr, OUTPUT);
-    pinReset(_pgm);
-    pinReset(_pgc);
-    pinReset(_pgd);
-    pinReset(_mclr);
 }
 
 void Programmer::ReadConfiguration() {
@@ -253,34 +244,26 @@ void Programmer::SetConfigurationWord(Word confWord) {
 
 // Private methods
 
-void Programmer::pinSet(int pin) {
-    digitalWrite(pin, HIGH);
-}
-
-void Programmer::pinReset(int pin) {
-    digitalWrite(pin, LOW);
-}
-
 void Programmer::clockDelay() {
     _NOP();     // TODO Replace with calculated timings
 }
 
 void Programmer::clockPulse() {
-    pinSet(_pgc);
+    _pgc.Set();
     clockDelay();
-    pinReset(_pgc);
+    _pgc.Reset();
     clockDelay();
 }
 
 void Programmer::sendBit(bool b) {
-    b ? pinSet(_pgd)
-      : pinReset(_pgd);
+    b ? _pgd.Set()
+      : _pgd.Reset();
     clockPulse();
 }
 
 bool Programmer::readBit() {
     clockPulse();
-    return digitalRead(_pgd);
+    return _pgd.Read();
 }
 
 void Programmer::sendCommand(Device::Cmd cmd) {
@@ -308,10 +291,10 @@ Word Programmer::readWord(bool step) {
     sendCommand(isData ? Device::Cmd::readData
                        : Device::Cmd::readProg);
     sendBit(0);
-    pinMode(_pgd, INPUT);
+    _pgd.Mode(INPUT);
     for (int b = 0; b < _dev->ProgramWordLength; b++)
         w |= readBit() << b;
-    pinMode(_pgd, OUTPUT);
+    _pgd.Mode(OUTPUT);
     sendBit(0);
     delayMicroseconds(1);
     if (step) increasePc();
@@ -363,12 +346,12 @@ void Programmer::setPc(PcSize address) {
 }
 
 void Programmer::startProgramMode() {
-    pinReset(_pgc);
-    pinReset(_pgd);
-    pinSet(_pgm);
-    // TODO 100ns Delay
+    _pgc.Reset();
+    _pgd.Reset();
+    _pgm.Set();
+    // TODO 100.Reset()s Delay
     delayMicroseconds(1);       // TODO Device.programModeDelay
-    pinSet(_mclr);
+    _mclr.Set();
     // TODO 100ns Delay
     delayMicroseconds(1);       // TODO Device.programModeDelay
     delayMicroseconds(5);       // TODO Device.programModeDelay
@@ -376,12 +359,12 @@ void Programmer::startProgramMode() {
 }
 
 void Programmer::stopProgramMode() {
-    pinReset(_pgc);
-    pinReset(_pgd);
-    pinReset(_mclr);
+    _pgc.Reset();
+    _pgd.Reset();
+    _mclr.Reset();
     // TODO 100ns Delay
     delayMicroseconds(1);
-    pinReset(_pgm);
+    _pgm.Reset();
     // TODO 100ns Delay
     delayMicroseconds(1);
     delayMicroseconds(5);       // TODO Device.programModeDelay

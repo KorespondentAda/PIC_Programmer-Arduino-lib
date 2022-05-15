@@ -5,6 +5,7 @@
 #pragma once
 
 #include "Arduino.h"
+#include "Pin.h"
 #include "Device.h"
 
 namespace pic {
@@ -35,19 +36,16 @@ public:
     void SetConfigurationWord(Word confWord);
 
 private:
-    int _pgm;                       // Pin ProGram Mode     XXX PIC_23
-    int _pgc;                       // Pin ProGram Clock    XXX PIC_27
-    int _pgd;                       // Pin ProGram Data     XXX PIC_28
-    int _mclr;                      // Pin Not-MCLR         XXX PIC_1
+    Pin _pgm;                       // Pin ProGram Mode     XXX PIC_23
+    Pin _pgc;                       // Pin ProGram Clock    XXX PIC_27
+    Pin _pgd;                       // Pin ProGram Data     XXX PIC_28
+    Pin _mclr;                      // Pin Not-MCLR         XXX PIC_1
                                     // Power (Vdd)          XXX PIC_20
                                     // Ground (Vss)         XXX PIC_8 | PIC_19
 
     Device *_dev;                   // Device description
 
     int _hexBufferSize;             // Buffer size for hex read/write sequence
-
-    void pinSet(int);               // Set digital pin to High voltage
-    void pinReset(int);             // Reset digital pin to Low voltage
 
     void clockDelay();
     void clockPulse();
