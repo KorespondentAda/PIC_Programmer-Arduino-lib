@@ -4,34 +4,65 @@
 
 namespace pic {
 
+template <class T>
 class Icsp {
 public:
-    Icsp(Pin = 2, Pin = 3, Pin = 4, Pin = 8);
+    Icsp(int bitCount = 8, Pin pgd = 3, Pin pgc = 4) :
+            _bits(bitCount), _pgd(pgd), _pgc(pgc) {}
 
-    Word Read(int bitCount);
-    void Write(Word data, int bitCount);
+    T Read() {
+        setMode(ModeRead);
+        _buffer = 0;
+        clockCycle();
+        return _buffer;
+    }
+
+    T Read(int bitCount) {
+        _bits = bitCount;
+        return Read();
+    }
+
+    void Write(T data) {
+        setMode(ModeWrite);
+        _buffer = data;
+        clockCycle();
+    }
+
+    void Write(T data, int bitCount) {
+        _bits = bitCount;
+        Write(data);
+    }
 
 private:
-    inline void setMode(bool);
+    void setMode(int mode) {
+        _mode = mode;
+        _pgd.Mode(_mode == ModeWrite ? OUTPUT : INPUT);
+    }
 
-    inline void clockCycle(int);
-    inline void clockDelay();
+    void clockCycle() {
+        int bufBit = 0;
+        while (bufBit < _bits) {
+            _pgc.Set();
+            if (_mode == ModeRead)
+                _buffer |= (_pgd.Read() << bufBit);
+            else
+                _pgd.Write(_buffer & (1 << bufBit));
+            _pgc.Reset();
+            bufBit++;
+        }
+    }
 
 private:
     enum {
-        ModeRead = false,
-        ModeWrite = true
+        ModeRead = 0,
+        ModeWrite = 1
     };
 
-    Pin _pgm;
+    int _mode;
+    int _bits;
     Pin _pgd;
     Pin _pgc;
-    Pin _mclr;
-    int _clockPeriod;
-    Word _buffer;
-    int _bufBit;
-    bool _mode;
-
+    T _buffer;
 };
 
 }
