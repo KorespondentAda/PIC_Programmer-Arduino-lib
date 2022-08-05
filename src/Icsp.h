@@ -50,6 +50,7 @@ private:
             _pgc.Reset();
             bufBit++;
         }
+        _pgd.Reset();
     }
 
 private:
