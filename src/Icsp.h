@@ -1,69 +1,75 @@
+/* Icsp.h - Part of `PIC_Programmer` Arduino library
+ * Created by KorespondentAda
+ * Released into the public domain
+ *
+ * Defines `Icsp` class that is software ICSP realization.
+ * Library needs it because of 6-bit commands transaction.
+ */
 #pragma once
-
-#include "types.h"
 
 namespace pic {
 
 template <class T>
 class Icsp {
 public:
-    Icsp(int bitCount = 8, Pin pgd = 3, Pin pgc = 4) :
-            _bits(bitCount), _pgd(pgd), _pgc(pgc) {}
+	Icsp(Pin pgc = 3, Pin pgd = 4, int bitCount = 8) :
+			_bits(bitCount), _pgd(pgd), _pgc(pgc) {}
 
-    T Read() {
-        setMode(ModeRead);
-        _buffer = 0;
-        clockCycle();
-        return _buffer;
-    }
+	T Read() {
+		setMode(ModeRead);
+		_buffer = 0;
+		clockCycle();
+		return _buffer;
+	}
 
-    T Read(int bitCount) {
-        _bits = bitCount;
-        return Read();
-    }
+	T Read(int bitCount) {
+		_bits = bitCount;
+		return Read();
+	}
 
-    void Write(T data) {
-        setMode(ModeWrite);
-        _buffer = data;
-        clockCycle();
-    }
+	void Write(T data) {
+		setMode(ModeWrite);
+		_buffer = data;
+		clockCycle();
+	}
 
-    void Write(T data, int bitCount) {
-        _bits = bitCount;
-        Write(data);
-    }
-
-private:
-    void setMode(int mode) {
-        _mode = mode;
-        _pgd.Mode(_mode == ModeWrite ? OUTPUT : INPUT);
-    }
-
-    void clockCycle() {
-        int bufBit = 0;
-        while (bufBit < _bits) {
-            _pgc.Set();
-            if (_mode == ModeRead)
-                _buffer |= (_pgd.Read() << bufBit);
-            else
-                _pgd.Write(_buffer & (1 << bufBit));
-            _pgc.Reset();
-            bufBit++;
-        }
-        _pgd.Reset();
-    }
+	void Write(T data, int bitCount) {
+		_bits = bitCount;
+		Write(data);
+	}
 
 private:
-    enum {
-        ModeRead = 0,
-        ModeWrite = 1
-    };
+	void setMode(int mode) {
+		_mode = mode;
+		_pgd.Mode(_mode == ModeWrite ? OUTPUT : INPUT);
+	}
 
-    int _mode;
-    int _bits;
-    Pin _pgd;
-    Pin _pgc;
-    T _buffer;
+	void clockCycle() {
+		for (int bufBit = 0; bufBit < _bits; bufBit++) {
+			if (_mode == ModeWrite)
+				_pgd.Write(_buffer & (1 << bufBit));
+			_pgc.Set();
+			delayMicroseconds(1);
+			if (_mode == ModeRead)
+				_buffer |= (int(_pgd.Read()) << bufBit);
+			_pgc.Reset();
+			delayMicroseconds(1);
+		}
+		_pgd.Reset();
+		delayMicroseconds(1);
+	}
+
+private:
+	enum {
+		ModeRead = 0,
+		ModeWrite = 1
+	};
+
+	int _mode;
+	int _bits;
+	Pin _pgd;
+	Pin _pgc;
+	T _buffer;
 };
 
 }

@@ -2,17 +2,18 @@
 Library for programming PIC MCUs through Arduino board.
 
 ## Installation
-User can just clone this repository to `libraries` directory in your sketchbook path (by default in `C:\Users\<Username>\Documents\Arduino` on Windows, `~/Arduino` on Linux).
-Then you can include this library in current sketch from menu by Sketch-\>Include Library-\>PIC\_Programmer.
+You can just clone this repository to `libraries` directory in your sketchbook path (by default in `C:\Users\<Username>\Documents\Arduino` on Windows, `~/Arduino` on Linux).
+Then you can include this library to current sketch in Arduino IDE from menu by Sketch-\>Include Library-\>PIC\_Programmer, or just add `#include <Pic.h>` to your sketch.
 
 ## Usage
 
-Class `PIC_Programmer` has interface methods that works with PIC MCU.
+Class `Pic` has interface methods that works with PIC MCU.
+That is universal base class for working with PICs. Classes specific for some devices are derived from `Pic`.
 
-For programming a chip:
-1. Create an `PIC_Programmer` object, pass working pin numbers to constructor;
-2. Call `Init()` method of created object before start work;
-3. After calling `ReadConfiguration()` you can see current configuration on serial monitor as readable data after calling `PrintConfiguration()`;
-4. To read all data from chip to serial as binary call `ReadChip()`;
-5. Writing hex dump to chip possible via serial after calling `WriteChip()`.
+Library usage simple enought to work with like demonstrated in examples.
+
+## Development
+
+Currently supported only PIC16F873 through `Pic` class.
+Supporting of all mid-range PIC devices planned.
 
