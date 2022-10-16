@@ -11,10 +11,10 @@
 namespace pic {
 
 class Pic {
-	Pin _pgm;
-	Pin _mclr;
-	Word _position;
-	Icsp<Word> _interface;
+	Pin _pgm;                 // Programming mode control
+	Pin _mclr;                // Programming voltage control
+	Word _position;           // Current PC value
+	Icsp<Word> _interface;    // Used InCircuit Programming Interface
 
 public:
 	Pic(int pgm, int pgc, int pgd, int mclr) :
