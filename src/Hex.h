@@ -10,7 +10,6 @@
 #pragma once
 #include "Print.h"
 #include "Printable.h"
-// TODO Rename/remove
 #define MaxRecSize 256
 #define DefRecSize 16
 
@@ -19,15 +18,11 @@ namespace pic {
 // Interface class that allows to be used in `Hex()` for pretty-printed binary
 class Hexable {
 public:
-	// Used for printing start address of each record
-	// Need to return address of byte that would be readed next
+	// Read `byteCount` bytes to `buf` and save first byte address to `address`
+	// Return number of bytes written to buffer
 	// Return 0 to skip location and look next
 	// Return -1 to finish
-	virtual int GetAddress() = 0;
-
-	// Read `byteCount` bytes to `buf`
-	// Return number of bytes written to buffer
-	virtual int GetData(unsigned char buf[], int byteCount) = 0;
+	virtual int GetData(size_t *address, uint8_t buf[], size_t byteCount) = 0;
 };
 
 class Hex : public Printable {
@@ -43,7 +38,7 @@ public:
 		size_t count = 0;
 		unsigned char buf[MaxRecSize];
 		int bytes;
-		int addr;
+		size_t addr;
 		unsigned char checksum;
 
 		/* Hex record format:
@@ -54,9 +49,8 @@ public:
 		 * 	%s  - Record data
 		 * 	%2x - Checksum
 		 */
-		while ((addr = _data.GetAddress()) >= 0) {
-			// Wait until find data that can be printed
-			while ((bytes = _data.GetData(buf, _recSize)) == 0);
+		while ((bytes = _data.GetData(&addr, buf, _recSize)) >= 0) {
+			if (bytes == 0) continue;
 			count += p.print(':');
 			count += printNum(p, bytes, 2);
 			count += printNum(p, addr, 4);
