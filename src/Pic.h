@@ -7,18 +7,30 @@
 #pragma once
 #include "types.h"
 #include "Icsp.h"
+#include "Hex.h"
 
 namespace pic {
 
-class Pic {
-	Pin _pgm;
-	Pin _mclr;
-	Word _position;
-	Icsp<Word> _interface;
+// TODO: Make `Hexable` members optional, only if lib provided
+class Pic : public Hexable {
+	Pin _pgm;                 // Programming mode control
+	Pin _mclr;                // Programming voltage control
+	Word _position;           // Current PC value
+	Icsp<Word> _interface;    // Used InCircuit Programming Interface
+
+	Word _memStart;
+	Word _memStop;
 
 public:
 	Pic(int pgm, int pgc, int pgd, int mclr) :
 			_pgm(pgm), _mclr(mclr), _position(0), _interface(pgc, pgd, 0) {};
+
+	// TODO Error checks
+	int setMemoryMap(Word addrStart, Word addrStop) {
+		_memStart = addrStart;
+		_memStop = addrStop;
+		return _memStop - _memStart;
+	}
 
 	// Begin or end programming cycle
 	void begin();
@@ -44,6 +56,26 @@ public:
 
 	// Move to next address
 	void step() { seek(_position + 1); }
+
+public: // Hexable
+	int GetData([[maybe_unused]]size_t *address, uint8_t buf[], size_t byteCount) override {
+		size_t bytes = 0;
+		byte b;
+		*address = (size_t)_position * 2;
+		while (bytes < byteCount) {
+			if (_position < _memStart || _position > _memStop)
+				return (bytes ? bytes : -1);
+			if (bytes % 2 == 0) {
+				b = lowByte(read());
+			} else {
+				b = highByte(read());
+				step();
+			}
+			buf[bytes] = b;
+			bytes++;
+		}
+		return bytes;
+	}
 
 private:
 	// Find address in memory sections
