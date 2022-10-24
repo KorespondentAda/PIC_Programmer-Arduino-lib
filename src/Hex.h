@@ -76,6 +76,7 @@ private:
 
 	static size_t printNum(Print &p, unsigned int num, unsigned int size) {
 		size_t count = 0;
+		num &= (unsigned int)(-1) >> (8 * sizeof(int) - (size*4));
 		unsigned int mask = 1 << (4 * (size-1));
 		while (num < mask && mask > 1) {
 			count += p.print('0');
